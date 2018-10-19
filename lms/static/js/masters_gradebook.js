@@ -1,5 +1,5 @@
 function _templateLoader(templateName, staticPath, callback, errorCallback) {
-    var templateURL = staticPath + '/common/templates/gradebook/' + templateName + '.html';
+    var templateURL = staticPath + '/common/templates/gradebook/' + templateName + '.underscore';
 
     $.ajax({
         url: templateURL,
@@ -132,7 +132,7 @@ $(document).ready(function() {
                 return;
             }
 
-            $cell.html($cell.attr('data-score-absolute'));
+            $cell.text($cell.attr('data-score-absolute'));
         },
         displayGrades = function() {
             var display = $('#table-data-view-percent').is(':checked') ? displayPercentGrade : displayAbsoluteGrade;
@@ -153,7 +153,7 @@ $(document).ready(function() {
                 return;
             }
 
-            $cell.html($cell.attr('data-score-percent'));
+            $cell.text($cell.attr('data-score-percent'));
         },
         fetchGrades = function(get_url) {
             $.ajax({
@@ -217,10 +217,11 @@ $(document).ready(function() {
         },
         renderGradingPolicyFilters = function(studentsData) {
             _templateLoader('_grading_policies', staticPath, function(template) {
-                var tpl = _.template(template);
-                $('#grading-policy').append(tpl({
+                var $tpl = edx.HtmlUtils.template(template)({
                     gradingPolicies: Object.keys(studentsData[0].aggregates)
-                }), displayError);
+                }).toString();
+                $('#grading-policy').append($tpl);
+                $('#grading-policy').append(edx.HtmlUtils.ensureHtml(displayError).toString());
             }, displayError);
         },
         renderGradebook = function(studentsData) {
@@ -230,15 +231,15 @@ $(document).ready(function() {
         },
         renderGradebookTable = function(studentsData) {
             _templateLoader('_gradebook_table', staticPath, function(template) {
-                var tpl = _.template(template);
-                $gradesTableWrapper.append(tpl({
+                var $tpl = edx.HtmlUtils.template(template)({
                     studentsData: studentsData,
                     strLib: {
                         userHeading: gettext('Username'),
                         currentGrade: gettext('Current grade'),
                         total: gettext('Total')
                     }
-                }));
+                }).toString();
+                $gradesTableWrapper.append($tpl);
                 createMainDataTable(studentsData.length);
                 ShowBlockIdEventBinder();
                 filterGradebook();
@@ -256,7 +257,7 @@ $(document).ready(function() {
     function renderModalTemplateData(template) {
         var blockID = $(gradeOverrideObject).attr('data-block-id');
         var studentsData = [];
-        var tpl = _.template(template);
+        var tpl = edx.HtmlUtils.template(template);
 
         gradeBookData.map(function(userData){
             var gradeData = userData.section_breakdown.filter(function(sectionData){
@@ -283,7 +284,8 @@ $(document).ready(function() {
             }
         });
 
-        $('#grade-override-modal').html(
+        edx.HtmlUtils.setHtml(
+            $('#grade-override-modal'),
             tpl({
                 studentsData: studentsData,
                 strLib: {
@@ -295,7 +297,8 @@ $(document).ready(function() {
                     save: gettext("Save"),
                     cancel: gettext("Cancel")
                 }
-            }));
+            })
+        );
         createModalTable(studentsData.length);
         fillModalTemplate();
     }
@@ -313,19 +316,18 @@ $(document).ready(function() {
         sectionBlockId = $(gradeOverrideObject).attr('data-section-block-id');
         gradesPublished = JSON.parse(dataPublished);
         isManualGrading = JSON.parse($(gradeOverrideObject).attr('data-manual-grading'));
-
-        $modal.find('.assignment-name-placeholder').html(assignmentName);
-        $modal.find('.block-id-placeholder').html(blockID);
+        $modal.find('.assignment-name-placeholder').text(assignmentName);
+        $modal.find('.block-id-placeholder').text(blockID);
         if ( _.isEmpty(userAutoGrades) ) {
             $tableWrapper.hide();
             $manualGradeVisibilityWrapper.toggle(false);
-            $modal.find('.grade-override-message').html('There are no student grades to adjust.');
+            $modal.find('.grade-override-message').text(gettext('There are no student grades to adjust.'));
             $modal.find('.grade-override-message').show();
             $saveGradeOverrideButton.hide();
         }
         else {
-            $adjustedGradeHeader.html(isManualGrading ? 'Manual grade' : 'Adjusted grade');
-            $autoGradeHeader.html(isManualGrading ? 'Current grade' : 'Auto grade');
+            $adjustedGradeHeader.text(isManualGrading ? 'Manual grade' : 'Adjusted grade');
+            $autoGradeHeader.text(isManualGrading ? 'Current grade' : 'Auto grade');
 
             $manualGradeVisibilityWrapper.toggle(isManualGrading);
             $saveGradeOverrideButton.attr('data-manual-grading', isManualGrading);
@@ -345,7 +347,7 @@ $(document).ready(function() {
                 var username = $autoGradePlaceholder.attr('data-username');
 
                 if (username in userAutoGrades) {
-                    $autoGradePlaceholder.html(userAutoGrades[username]);
+                    $autoGradePlaceholder.text(userAutoGrades[username]);
                     var autoEarnedGrade = userAutoGrades[username].split('/')[0],
                         autoPossibleGrade = userAutoGrades[username].split('/')[1];
                     $adjustedGradePlaceholder.attr('data-score-earned', autoEarnedGrade);
@@ -373,7 +375,7 @@ $(document).ready(function() {
                         $commentTextArea.prop('disabled', true).val('');
                     }
                     $adjustedGradePlaceholder.find('input').val($adjustedGradePlaceholder.attr('data-score-earned'));
-                    $adjustedGradePlaceholder.find('span').html($adjustedGradePlaceholder.attr('data-score-possible'));
+                    $adjustedGradePlaceholder.find('span').text($adjustedGradePlaceholder.attr('data-score-possible'));
                 }
                 else
                     $(this).hide();
@@ -582,8 +584,8 @@ $(document).ready(function() {
             }
 
             for (var i = 0; i < adjustedGradesData[username].errors.length; i++) {
-                errorMessage = 'Error for user ' + username + ': ' + adjustedGradesData[username].errors[i] + '<br>';
-                $messageField.append(errorMessage);
+                $errorMessage = edx.HtmlUtils.joinHtml('Error for user ', username, ': ', adjustedGradesData[username].errors[i], '<br>').toString();
+                $messageField.append($errorMessage);
             }
 
             if (adjustedGradesData[username].errors.length === 0) {
@@ -610,7 +612,7 @@ $(document).ready(function() {
             if ($(this).find('input').length)
                 $(this).find('input').prop('disabled', false);
             else
-                $(this).html($(this).attr('data-score-absolute'));
+                $(this).text($(this).attr('data-score-absolute'));
     });
 
     $(document).on('change', '#save-grade-field textarea', function(){
