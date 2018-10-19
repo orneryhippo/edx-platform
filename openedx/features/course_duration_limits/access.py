@@ -3,15 +3,18 @@
 Contains code related to computing content gating course duration limits
 and course access based on these limits.
 """
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from django.apps import apps
+from django.core.cache import cache
 from django.utils import timezone
 from django.utils.translation import ugettext as _
 
 
 from lms.djangoapps.courseware.access_response import AccessError
 from lms.djangoapps.courseware.access_utils import ACCESS_GRANTED
+
+COURSE_DURATION_CACHE_TIMEOUT = 3600
 
 
 class AuditExpiredError(AccessError):
@@ -42,13 +45,30 @@ def get_user_course_expiration_date(user, course):
     except CourseEnrollment.schedule.RelatedObjectDoesNotExist:
         start_date = max(enrollment.created, course.start)
 
-    access_duration = timedelta(weeks=8)
-    if hasattr(course, 'pacing') and course.pacing == 'instructor':
-        if course.end and course.start:
-            access_duration = course.end - course.start
+    pacing = getattr(course, pacing, None)
+    course_end = getattr(course, 'end', None)
+    if isinstance(course_end, date):
+        # CourseOverview uses datetime while CourseDescriptor uses date, so we convert to match
+        course_end = datetime(course_end.year, course_end.month, course_end.day)
 
-    expiration_date = start_date + access_duration
-    return expiration_date
+    if pacing == 'instructor':
+        
+        pass
+    # do self things
+
+    # access_duration = timedelta(weeks=8)
+    # if hasattr(course, 'pacing') and course.pacing == 'instructor':
+    #     if course.end and course.start:
+    #         access_duration = course.end - course.start
+
+    # expiration_date = start_date + access_duration
+    # return expiration_date
+
+    expected_duration_data = {'weeks_to_complete': 6}
+    # Replace with API call and cache
+    expected_duration = expected_duration_data['weeks_to_complete']
+
+
 
 
 def check_course_expired(user, course):
